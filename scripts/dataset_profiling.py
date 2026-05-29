@@ -1,9 +1,3 @@
-"""
-ASL Knowledge Infrastructure - Dataset Profiling (Section 11.2)
-This script validates the corpus segments, cross-temporal distribution, 
-and basic descriptive statistics of the constructed knowledge base.
-"""
-
 import pandas as pd
 from pathlib import Path
 
