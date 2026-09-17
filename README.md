@@ -6,6 +6,10 @@
 ![Status](https://img.shields.io/badge/Status-Phase_1_(Waqf)-purple)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/NoorBayan/ASL/main/Images/logo.png" alt="Quranic Corpus Logo" width="250px"/>
+</p>
+
 ## 📌 Overview
 This repository hosts the data and analytical scripts for **ASL**, a scalable knowledge engineering infrastructure designed to digitally transform and semantically model classical Islamic Jurisprudence (Fiqh). 
 
