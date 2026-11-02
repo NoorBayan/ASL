@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import pandas as pd
-from typing import Dict, Any
+from typing import Dict, Any, List
 from src.core.config import PipelineConfig
 from src.storage.connection import SQLiteConnection
 from src.storage.schema import init_hierarchy_schema
@@ -40,28 +40,45 @@ class Stage1HierarchyPipeline:
         target = str(local_path) if local_path.exists() else self.config.topics_csv_url
         
         df_topics = self._read_table_robust(target)
-        
         df_topics = df_topics.loc[:, ~df_topics.columns.duplicated()].copy()
-        
-        col_rename = {c: c.strip() for c in df_topics.columns}
-        df_topics.rename(columns=col_rename, inplace=True)
+        df_topics.columns = [c.strip() for c in df_topics.columns]
 
-        df_topics["parent_id"] = df_topics["parent_id"].apply(
-            lambda x: None if pd.isna(x) or str(x).strip().upper() == "NULL" or str(x).strip() == "" else int(float(x))
+        df_topics["parent_id"] = pd.to_numeric(
+            df_topics["parent_id"].astype(str).str.replace("NULL", "", case=False).str.strip(),
+            errors="coerce"
         )
-        df_topics["topic_id"] = df_topics["topic_id"].astype(int)
-        df_topics["topic_level"] = df_topics["topic_level"].astype(int)
-        df_topics["display_order"] = df_topics["display_order"].fillna(0).astype(int)
-        df_topics["is_leaf"] = df_topics["is_leaf"].fillna(0).astype(int)
+        df_topics["topic_id"] = pd.to_numeric(df_topics["topic_id"], errors="coerce").fillna(0).astype(int)
+        df_topics["topic_level"] = pd.to_numeric(df_topics["topic_level"], errors="coerce").fillna(1).astype(int)
+        
+        if "display_order" in df_topics.columns:
+            df_topics["display_order"] = pd.to_numeric(df_topics["display_order"], errors="coerce").fillna(0).astype(int)
+        else:
+            df_topics["display_order"] = 0
+            
+        if "is_leaf" in df_topics.columns:
+            df_topics["is_leaf"] = pd.to_numeric(df_topics["is_leaf"], errors="coerce").fillna(0).astype(int)
+        else:
+            df_topics["is_leaf"] = 0
 
-        topics_records = df_topics.to_dict(orient="records")
+        topics_records: List[Dict[str, Any]] = []
+        edges: List[Dict[str, Any]] = []
 
-        edges = []
         for _, row in df_topics.iterrows():
-            if row["parent_id"] is not None:
+            parent_val = int(row["parent_id"]) if pd.notna(row["parent_id"]) else None
+            topic_val = int(row["topic_id"])
+            
+            record = row.to_dict()
+            record["parent_id"] = parent_val
+            record["topic_id"] = topic_val
+            record["topic_level"] = int(row["topic_level"])
+            record["display_order"] = int(row["display_order"])
+            record["is_leaf"] = int(row["is_leaf"])
+            topics_records.append(record)
+
+            if parent_val is not None:
                 edges.append({
-                    "parent_id": int(row["parent_id"]),
-                    "child_id": int(row["topic_id"]),
+                    "parent_id": parent_val,
+                    "child_id": topic_val,
                     "relation_type": "subsumes"
                 })
 
@@ -72,15 +89,15 @@ class Stage1HierarchyPipeline:
             repo.insert_edges(edges)
 
             edge_tuples = [(e["parent_id"], e["child_id"]) for e in edges]
-            node_ids = [int(t["topic_id"]) for t in topics_records]
+            node_ids = [r["topic_id"] for r in topics_records]
             
             closure_builder = ClosureTableBuilder(conn)
             closure_builder.build_from_edges(edge_tuples, node_ids)
 
-            paths_data = [(int(t["topic_id"]), str(t["topic_path"]), int(t["topic_level"])) for t in topics_records]
+            paths_data = [(r["topic_id"], str(r.get("topic_path", "")), r["topic_level"]) for r in topics_records]
             closure_builder.populate_materialized_paths(paths_data)
 
-        levels_dict = {int(t["topic_id"]): int(t["topic_level"]) for t in topics_records}
+        levels_dict = {r["topic_id"]: r["topic_level"] for r in topics_records}
         validator = DAGValidator(node_ids, edge_tuples, levels_dict)
         metrics = validator.calculate_metrics()
 
