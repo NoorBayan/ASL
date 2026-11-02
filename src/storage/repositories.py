@@ -6,6 +6,17 @@ class TopicRepository:
         self.conn = conn
 
     def insert_topics(self, topics: List[Dict[str, Any]]) -> None:
+        allowed_columns = [
+            "topic_id", "parent_id", "topic_code", "topic_parent_code", "title",
+            "topic_type", "display_order", "topic_level", "topic_path", "category",
+            "is_leaf", "content_text", "explanation", "content_type"
+        ]
+        
+        sanitized_records = []
+        for t in topics:
+            record = {col: t.get(col, None) for col in allowed_columns}
+            sanitized_records.append(record)
+
         sql = """
         INSERT OR REPLACE INTO topics (
             topic_id, parent_id, topic_code, topic_parent_code, title,
@@ -18,7 +29,7 @@ class TopicRepository:
         );
         """
         cursor = self.conn.cursor()
-        cursor.executemany(sql, topics)
+        cursor.executemany(sql, sanitized_records)
 
     def insert_edges(self, edges: List[Dict[str, Any]]) -> None:
         sql = """
@@ -30,7 +41,7 @@ class TopicRepository:
 
     def get_all_topics(self) -> List[Dict[str, Any]]:
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM topics ORDER BY topic_level, display_order;")
+        cursor.execute("SELECT * FROM topics ORDER BY topic_level, display_order, topic_id;")
         return [dict(row) for row in cursor.fetchall()]
 
     def get_all_edges(self) -> List[Dict[str, Any]]:
