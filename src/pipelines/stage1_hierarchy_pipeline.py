@@ -16,20 +16,36 @@ class Stage1HierarchyPipeline:
         self.config.ensure_directories()
         self.connection_manager = SQLiteConnection(self.config.database_path)
 
-    def _load_topics_dataframe(self) -> pd.DataFrame:
-        local_file = Path("/content/ASL/data/processed/topics.csv")
-        target_path = local_file if local_file.exists() else self.config.topics_csv_url
+    def _read_table_robust(self, target_path: str) -> pd.DataFrame:
+        encodings = ["utf-8-sig", "utf-16", "utf-16-le", "utf-8", "cp1256"]
+        separators = [None, ",", "\t", ";"]
         
-        encodings_to_try = ["utf-16", "utf-16-le", "utf-8-sig", "utf-8", "cp1256"]
-        for enc in encodings_to_try:
-            try:
-                return pd.read_csv(target_path, encoding=enc)
-            except (UnicodeDecodeError, UnicodeError):
-                continue
-        return pd.read_csv(target_path)
+        for enc in encodings:
+            for sep in separators:
+                try:
+                    df = pd.read_csv(target_path, encoding=enc, sep=sep, engine="python")
+                    cleaned_cols = [str(c).strip().replace("\ufeff", "") for c in df.columns]
+                    cleaned_cols_lower = [c.lower() for c in cleaned_cols]
+                    
+                    if "topic_id" in cleaned_cols_lower and "parent_id" in cleaned_cols_lower:
+                        df.columns = cleaned_cols
+                        return df
+                except Exception:
+                    continue
+        
+        raise ValueError(f"Unable to parse table structure correctly from: {target_path}")
 
     def run(self) -> Dict[str, Any]:
-        df_topics = self._load_topics_dataframe()
+        local_path = Path("data/processed/topics.csv")
+        target = str(local_path) if local_path.exists() else self.config.topics_csv_url
+        
+        df_topics = self._read_table_robust(target)
+        
+        df_topics = df_topics.loc[:, ~df_topics.columns.duplicated()].copy()
+        
+        col_rename = {c: c.strip() for c in df_topics.columns}
+        df_topics.rename(columns=col_rename, inplace=True)
+
         df_topics["parent_id"] = df_topics["parent_id"].apply(
             lambda x: None if pd.isna(x) or str(x).strip().upper() == "NULL" or str(x).strip() == "" else int(float(x))
         )
