@@ -4,7 +4,7 @@ CREATE_TOPICS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS topics (
     topic_id INTEGER PRIMARY KEY,
     parent_id INTEGER,
-    topic_code TEXT NOT NULL,
+    topic_code TEXT,
     topic_parent_code TEXT,
     title TEXT NOT NULL,
     topic_type TEXT,
