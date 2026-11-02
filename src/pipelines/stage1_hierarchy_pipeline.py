@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import pandas as pd
 from typing import Dict, Any
 from src.core.config import PipelineConfig
@@ -15,8 +16,20 @@ class Stage1HierarchyPipeline:
         self.config.ensure_directories()
         self.connection_manager = SQLiteConnection(self.config.database_path)
 
+    def _load_topics_dataframe(self) -> pd.DataFrame:
+        local_file = Path("/content/ASL/data/processed/topics.csv")
+        target_path = local_file if local_file.exists() else self.config.topics_csv_url
+        
+        encodings_to_try = ["utf-16", "utf-16-le", "utf-8-sig", "utf-8", "cp1256"]
+        for enc in encodings_to_try:
+            try:
+                return pd.read_csv(target_path, encoding=enc)
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+        return pd.read_csv(target_path)
+
     def run(self) -> Dict[str, Any]:
-        df_topics = pd.read_csv(self.config.topics_csv_url)
+        df_topics = self._load_topics_dataframe()
         df_topics["parent_id"] = df_topics["parent_id"].apply(
             lambda x: None if pd.isna(x) or str(x).strip().upper() == "NULL" or str(x).strip() == "" else int(float(x))
         )
