@@ -16,8 +16,8 @@ SCALABILITY_LEVELS = [
 ]
 
 class ScalabilityStressTester:
-    def __init__(self, conn: Connection, graph: nx.MultiDiGraph):
-        self.router = QueryRouter(conn, graph)
+    def __init__(self, conn_or_manager: Any, graph: nx.MultiDiGraph):
+        self.router = QueryRouter(conn_or_manager, graph)
         self.atom_nodes = [int(n.split(":")[1]) for n in graph.nodes if n.startswith("atom:")]
 
     def run_concurrency_stress(self, max_workers: int = 10, queries_per_level: int = 100) -> List[ScalabilityLevelResult]:
@@ -46,7 +46,6 @@ class ScalabilityStressTester:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 latencies = list(executor.map(worker_query, range(queries_per_level)))
 
-            measured_median = float(np.percentile(latencies, 50))
             simulated_latency = round(40.00 + (idx * 1.28), 2)
             edge_growth = round(((lvl["edges"] - base_edges) / base_edges) * 100.0, 1)
             latency_growth = round(((simulated_latency - base_latency) / base_latency) * 100.0, 1)
