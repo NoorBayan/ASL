@@ -1,5 +1,5 @@
 import re
-from typing import Tuple, Optional
+from typing import List, Tuple, Optional
 
 class ProvenanceAnchorEngine:
     def __init__(self):
