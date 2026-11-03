@@ -91,17 +91,24 @@ class RelationOntologyRegistry:
                 description=r["desc"]
             )
 
+    def register_predicate(self, predicate_id: str) -> RelationTypeModel:
+        cleaned = str(predicate_id).strip().lower()
+        if cleaned not in self.registry:
+            self.registry[cleaned] = RelationTypeModel(
+                relation_type_id=cleaned,
+                relation_name_en=cleaned.replace("_", " ").title(),
+                relation_name_ar=cleaned,
+                category="domain_relation",
+                is_directed=True,
+                is_symmetric=(cleaned == "aligned_with")
+            )
+        return self.registry[cleaned]
+
     def get_relation(self, predicate: str) -> RelationTypeModel:
         cleaned = str(predicate).strip().lower()
         if cleaned in self.registry:
             return self.registry[cleaned]
-        return RelationTypeModel(
-            relation_type_id=cleaned,
-            relation_name_en=cleaned.replace("_", " ").title(),
-            relation_name_ar=cleaned,
-            category="general",
-            is_directed=True
-        )
+        return self.register_predicate(cleaned)
 
     def get_all_predicates(self) -> List[RelationTypeModel]:
         return list(self.registry.values())
