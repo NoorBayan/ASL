@@ -183,3 +183,48 @@ class RelationRepository:
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM knowledge_relations WHERE predicate = ?;", (predicate,))
         return [dict(row) for row in cursor.fetchall()]
+
+
+class ReviewRepository:
+    def __init__(self, conn: Connection):
+        self.conn = conn
+
+    def log_review_action(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action_type: str,
+        old_value: Optional[str],
+        new_value: Optional[str],
+        reviewer_id: str,
+        reason: Optional[str]
+    ) -> None:
+        sql = """
+        INSERT INTO review_history (
+            entity_type, entity_id, action_type, old_value, new_value, reviewer_id, reason
+        ) VALUES (?, ?, ?, ?, ?, ?, ?);
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(sql, (entity_type, entity_id, action_type, old_value, new_value, reviewer_id, reason))
+
+    def get_review_history(self, limit: int = 50) -> List[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM review_history ORDER BY history_id DESC LIMIT ?;", (limit,))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def record_dataset_version(
+        self,
+        version_tag: str,
+        topics_count: int,
+        atoms_count: int,
+        relations_count: int,
+        total_nodes: int,
+        total_edges: int
+    ) -> None:
+        sql = """
+        INSERT INTO dataset_versions (
+            version_tag, topics_count, atoms_count, relations_count, total_nodes, total_edges
+        ) VALUES (?, ?, ?, ?, ?, ?);
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(sql, (version_tag, topics_count, atoms_count, relations_count, total_nodes, total_edges))
