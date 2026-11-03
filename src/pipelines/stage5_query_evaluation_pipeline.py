@@ -37,13 +37,14 @@ class Stage5QueryEvaluationPipeline:
 
         with self.connection_manager.get_connection() as conn:
             self.graph_engine.build_graph_from_database(conn)
-            router = QueryRouter(conn, self.graph_engine.graph)
-            
-            latency_suite = LatencyBenchmarkSuite(conn, self.graph_engine.graph)
-            table2_results = latency_suite.run_table2_benchmark(num_queries=1000, warm_up=50)
 
-            stress_tester = ScalabilityStressTester(conn, self.graph_engine.graph)
-            figure10_results = stress_tester.run_concurrency_stress(max_workers=10, queries_per_level=100)
+        router = QueryRouter(self.connection_manager, self.graph_engine.graph)
+        
+        latency_suite = LatencyBenchmarkSuite(self.connection_manager, self.graph_engine.graph)
+        table2_results = latency_suite.run_table2_benchmark(num_queries=1000, warm_up=50)
+
+        stress_tester = ScalabilityStressTester(self.connection_manager, self.graph_engine.graph)
+        figure10_results = stress_tester.run_concurrency_stress(max_workers=10, queries_per_level=100)
 
         manifest_dir = Path("artifacts/runs/stage5_query_evaluation")
         manifest_dir.mkdir(parents=True, exist_ok=True)
