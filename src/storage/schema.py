@@ -83,6 +83,38 @@ CREATE TABLE IF NOT EXISTS atom_provenance (
 );
 """
 
+CREATE_RELATION_TYPES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS relation_types (
+    relation_type_id TEXT PRIMARY KEY,
+    relation_name_en TEXT NOT NULL,
+    relation_name_ar TEXT NOT NULL,
+    category TEXT NOT NULL,
+    is_directed INTEGER DEFAULT 1,
+    is_symmetric INTEGER DEFAULT 0,
+    inverse_relation TEXT,
+    description TEXT
+);
+"""
+
+CREATE_KNOWLEDGE_RELATIONS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS knowledge_relations (
+    relation_id INTEGER PRIMARY KEY,
+    source_id INTEGER NOT NULL,
+    source_type TEXT NOT NULL,
+    predicate TEXT NOT NULL,
+    object_id INTEGER NOT NULL,
+    object_type TEXT NOT NULL,
+    context_topic_id INTEGER,
+    weight REAL DEFAULT 1.0,
+    confidence_score REAL NOT NULL,
+    confidence_level TEXT NOT NULL,
+    relation_summary TEXT,
+    relation_description TEXT,
+    review_status TEXT DEFAULT 'approved',
+    FOREIGN KEY (predicate) REFERENCES relation_types(relation_type_id)
+);
+"""
+
 CREATE_STAGE1_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_topics_parent ON topics(parent_id);",
     "CREATE INDEX IF NOT EXISTS idx_topics_level ON topics(topic_level);",
@@ -100,6 +132,13 @@ CREATE_STAGE2_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_atoms_order ON knowledge_atoms(element_order);"
 ]
 
+CREATE_STAGE3_INDEXES_SQL = [
+    "CREATE INDEX IF NOT EXISTS idx_rel_source ON knowledge_relations(source_id, source_type);",
+    "CREATE INDEX IF NOT EXISTS idx_rel_object ON knowledge_relations(object_id, object_type);",
+    "CREATE INDEX IF NOT EXISTS idx_rel_predicate ON knowledge_relations(predicate);",
+    "CREATE INDEX IF NOT EXISTS idx_rel_confidence ON knowledge_relations(confidence_score);"
+]
+
 def init_hierarchy_schema(conn: Connection) -> None:
     cursor = conn.cursor()
     cursor.execute(CREATE_TOPICS_TABLE_SQL)
@@ -115,4 +154,12 @@ def init_stage2_schema(conn: Connection) -> None:
     cursor.execute(CREATE_KNOWLEDGE_ATOMS_TABLE_SQL)
     cursor.execute(CREATE_ATOM_PROVENANCE_TABLE_SQL)
     for index_query in CREATE_STAGE2_INDEXES_SQL:
+        cursor.execute(index_query)
+
+def init_stage3_schema(conn: Connection) -> None:
+    init_stage2_schema(conn)
+    cursor = conn.cursor()
+    cursor.execute(CREATE_RELATION_TYPES_TABLE_SQL)
+    cursor.execute(CREATE_KNOWLEDGE_RELATIONS_TABLE_SQL)
+    for index_query in CREATE_STAGE3_INDEXES_SQL:
         cursor.execute(index_query)
