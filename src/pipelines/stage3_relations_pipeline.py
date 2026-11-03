@@ -62,6 +62,9 @@ class Stage3RelationsPipeline:
         df_kg["object_id"] = pd.to_numeric(df_kg["object_id"], errors="coerce").fillna(1).astype(int)
         df_kg["weight"] = pd.to_numeric(df_kg.get("weight", 1.0), errors="coerce").fillna(1.0).astype(float)
 
+        for raw_pred in df_kg["predicate"].dropna().unique():
+            self.ontology_registry.register_predicate(str(raw_pred))
+
         types_records = [r.model_dump() for r in self.ontology_registry.get_all_predicates()]
 
         relations_records: List[Dict[str, Any]] = []
