@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any, List
 
 class CascadingRelationClassifier:
     def __init__(self, confidence_threshold: float = 0.85):
@@ -22,7 +22,7 @@ class CascadingRelationClassifier:
         status = "auto_approved" if adjusted_score >= self.confidence_threshold else "flagged_for_review"
         return adjusted_score, status
 
-    def evaluate_threshold_sensitivity(self, scores: list, threshold: float) -> float:
+    def evaluate_threshold_sensitivity(self, scores: List[float], threshold: float) -> float:
         if not scores:
             return 0.0
         flagged = sum(1 for s in scores if s < threshold)
