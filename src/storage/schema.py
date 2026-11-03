@@ -83,6 +83,16 @@ CREATE TABLE IF NOT EXISTS atom_provenance (
 );
 """
 
+CREATE_STAGE1_INDEXES_SQL = [
+    "CREATE INDEX IF NOT EXISTS idx_topics_parent ON topics(parent_id);",
+    "CREATE INDEX IF NOT EXISTS idx_topics_level ON topics(topic_level);",
+    "CREATE INDEX IF NOT EXISTS idx_topics_path ON topics(topic_path);",
+    "CREATE INDEX IF NOT EXISTS idx_closure_ancestor ON topic_closure(ancestor_id);",
+    "CREATE INDEX IF NOT EXISTS idx_closure_descendant ON topic_closure(descendant_id);",
+    "CREATE INDEX IF NOT EXISTS idx_closure_depth ON topic_closure(depth);",
+    "CREATE INDEX IF NOT EXISTS idx_edges_child ON topic_edges(child_id);"
+]
+
 CREATE_STAGE2_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_atoms_topic ON knowledge_atoms(topic_id);",
     "CREATE INDEX IF NOT EXISTS idx_atoms_role ON knowledge_atoms(element_type_en);",
@@ -90,12 +100,18 @@ CREATE_STAGE2_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_atoms_order ON knowledge_atoms(element_order);"
 ]
 
-def init_stage2_schema(conn: Connection) -> None:
+def init_hierarchy_schema(conn: Connection) -> None:
     cursor = conn.cursor()
     cursor.execute(CREATE_TOPICS_TABLE_SQL)
     cursor.execute(CREATE_TOPIC_EDGES_TABLE_SQL)
     cursor.execute(CREATE_TOPIC_CLOSURE_TABLE_SQL)
     cursor.execute(CREATE_TOPIC_PATHS_TABLE_SQL)
+    for index_query in CREATE_STAGE1_INDEXES_SQL:
+        cursor.execute(index_query)
+
+def init_stage2_schema(conn: Connection) -> None:
+    init_hierarchy_schema(conn)
+    cursor = conn.cursor()
     cursor.execute(CREATE_KNOWLEDGE_ATOMS_TABLE_SQL)
     cursor.execute(CREATE_ATOM_PROVENANCE_TABLE_SQL)
     for index_query in CREATE_STAGE2_INDEXES_SQL:
