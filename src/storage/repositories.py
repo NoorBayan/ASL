@@ -11,12 +11,7 @@ class TopicRepository:
             "topic_type", "display_order", "topic_level", "topic_path", "category",
             "is_leaf", "content_text", "explanation", "content_type"
         ]
-        
-        sanitized_records = []
-        for t in topics:
-            record = {col: t.get(col, None) for col in allowed_columns}
-            sanitized_records.append(record)
-
+        sanitized_records = [{col: t.get(col, None) for col in allowed_columns} for t in topics]
         sql = """
         INSERT OR REPLACE INTO topics (
             topic_id, parent_id, topic_code, topic_parent_code, title,
@@ -51,12 +46,7 @@ class TopicRepository:
 
     def get_ancestors(self, topic_id: int) -> List[Dict[str, Any]]:
         sql = """
-        SELECT 
-            t.topic_id,
-            t.title,
-            t.topic_level,
-            t.topic_code,
-            c.depth
+        SELECT t.topic_id, t.title, t.topic_level, t.topic_code, c.depth
         FROM topic_closure c
         JOIN topics t ON c.ancestor_id = t.topic_id
         WHERE c.descendant_id = ?
@@ -69,12 +59,7 @@ class TopicRepository:
     def get_descendants(self, topic_id: int, max_depth: Optional[int] = None) -> List[Dict[str, Any]]:
         if max_depth is not None:
             sql = """
-            SELECT 
-                t.topic_id,
-                t.title,
-                t.topic_level,
-                t.topic_code,
-                c.depth
+            SELECT t.topic_id, t.title, t.topic_level, t.topic_code, c.depth
             FROM topic_closure c
             JOIN topics t ON c.descendant_id = t.topic_id
             WHERE c.ancestor_id = ? AND c.depth <= ?
@@ -83,12 +68,7 @@ class TopicRepository:
             params = (topic_id, max_depth)
         else:
             sql = """
-            SELECT 
-                t.topic_id,
-                t.title,
-                t.topic_level,
-                t.topic_code,
-                c.depth
+            SELECT t.topic_id, t.title, t.topic_level, t.topic_code, c.depth
             FROM topic_closure c
             JOIN topics t ON c.descendant_id = t.topic_id
             WHERE c.ancestor_id = ?
@@ -152,3 +132,54 @@ class AtomRepository:
         cursor.execute("SELECT * FROM knowledge_atoms WHERE atom_id = ?;", (atom_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
+
+
+class RelationRepository:
+    def __init__(self, conn: Connection):
+        self.conn = conn
+
+    def insert_relation_types(self, relation_types: List[Dict[str, Any]]) -> None:
+        sql = """
+        INSERT OR REPLACE INTO relation_types (
+            relation_type_id, relation_name_en, relation_name_ar,
+            category, is_directed, is_symmetric, inverse_relation, description
+        ) VALUES (
+            :relation_type_id, :relation_name_en, :relation_name_ar,
+            :category, :is_directed, :is_symmetric, :inverse_relation, :description
+        );
+        """
+        cursor = self.conn.cursor()
+        cursor.executemany(sql, relation_types)
+
+    def insert_relations(self, relations: List[Dict[str, Any]]) -> None:
+        sql = """
+        INSERT OR REPLACE INTO knowledge_relations (
+            relation_id, source_id, source_type, predicate, object_id,
+            object_type, context_topic_id, weight, confidence_score,
+            confidence_level, relation_summary, relation_description, review_status
+        ) VALUES (
+            :relation_id, :source_id, :source_type, :predicate, :object_id,
+            :object_type, :context_topic_id, :weight, :confidence_score,
+            :confidence_level, :relation_summary, :relation_description, :review_status
+        );
+        """
+        cursor = self.conn.cursor()
+        cursor.executemany(sql, relations)
+
+    def get_all_relations(self) -> List[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM knowledge_relations ORDER BY relation_id ASC;")
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_relations_by_source(self, source_id: int, source_type: str = "atom") -> List[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT * FROM knowledge_relations WHERE source_id = ? AND source_type = ?;",
+            (source_id, source_type)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_relations_by_predicate(self, predicate: str) -> List[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM knowledge_relations WHERE predicate = ?;", (predicate,))
+        return [dict(row) for row in cursor.fetchall()]
