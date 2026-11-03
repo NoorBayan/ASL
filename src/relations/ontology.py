@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from src.schemas.relation import RelationTypeModel
 
 PREDEFINED_RELATIONS: List[Dict[str, Any]] = [
