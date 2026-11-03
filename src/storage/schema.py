@@ -115,6 +115,33 @@ CREATE TABLE IF NOT EXISTS knowledge_relations (
 );
 """
 
+CREATE_REVIEW_HISTORY_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS review_history (
+    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER NOT NULL,
+    action_type TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    reviewer_id TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reason TEXT
+);
+"""
+
+CREATE_DATASET_VERSIONS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS dataset_versions (
+    version_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_tag TEXT NOT NULL,
+    topics_count INTEGER NOT NULL,
+    atoms_count INTEGER NOT NULL,
+    relations_count INTEGER NOT NULL,
+    total_nodes INTEGER NOT NULL,
+    total_edges INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 CREATE_STAGE1_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_topics_parent ON topics(parent_id);",
     "CREATE INDEX IF NOT EXISTS idx_topics_level ON topics(topic_level);",
@@ -137,6 +164,11 @@ CREATE_STAGE3_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_rel_object ON knowledge_relations(object_id, object_type);",
     "CREATE INDEX IF NOT EXISTS idx_rel_predicate ON knowledge_relations(predicate);",
     "CREATE INDEX IF NOT EXISTS idx_rel_confidence ON knowledge_relations(confidence_score);"
+]
+
+CREATE_STAGE4_INDEXES_SQL = [
+    "CREATE INDEX IF NOT EXISTS idx_review_entity ON review_history(entity_type, entity_id);",
+    "CREATE INDEX IF NOT EXISTS idx_review_timestamp ON review_history(timestamp);"
 ]
 
 def init_hierarchy_schema(conn: Connection) -> None:
@@ -162,4 +194,12 @@ def init_stage3_schema(conn: Connection) -> None:
     cursor.execute(CREATE_RELATION_TYPES_TABLE_SQL)
     cursor.execute(CREATE_KNOWLEDGE_RELATIONS_TABLE_SQL)
     for index_query in CREATE_STAGE3_INDEXES_SQL:
+        cursor.execute(index_query)
+
+def init_stage4_schema(conn: Connection) -> None:
+    init_stage3_schema(conn)
+    cursor = conn.cursor()
+    cursor.execute(CREATE_REVIEW_HISTORY_TABLE_SQL)
+    cursor.execute(CREATE_DATASET_VERSIONS_TABLE_SQL)
+    for index_query in CREATE_STAGE4_INDEXES_SQL:
         cursor.execute(index_query)
