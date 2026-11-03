@@ -2,7 +2,7 @@ import json
 import re
 from pathlib import Path
 import pandas as pd
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set
 from src.core.config import PipelineConfig
 from src.storage.connection import SQLiteConnection
 from src.storage.schema import init_stage2_schema
@@ -11,6 +11,7 @@ from src.atomization.role_classifier import EpistemicRoleRegistry
 from src.atomization.disambiguator import BoundaryDisambiguator
 from src.atomization.provenance_anchor import ProvenanceAnchorEngine
 from src.schemas.atom import AtomSegmentationMetrics
+from src.pipelines.stage1_hierarchy_pipeline import Stage1HierarchyPipeline
 
 class Stage2AtomizationPipeline:
     def __init__(self, config: PipelineConfig):
@@ -37,7 +38,26 @@ class Stage2AtomizationPipeline:
                     continue
         raise ValueError(f"Unable to parse table structure correctly from: {target_path}")
 
+    def _ensure_topics_hydrated(self) -> Set[int]:
+        with self.connection_manager.get_connection() as conn:
+            init_stage2_schema(conn)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM topics;")
+            count = cursor.fetchone()[0]
+
+        if count == 0:
+            stage1 = Stage1HierarchyPipeline(self.config)
+            stage1.run()
+
+        with self.connection_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT topic_id FROM topics;")
+            return {int(row[0]) for row in cursor.fetchall()}
+
     def run(self) -> Dict[str, Any]:
+        valid_topic_ids = self._ensure_topics_hydrated()
+        fallback_topic_id = min(valid_topic_ids) if valid_topic_ids else 1
+
         local_elements_path = Path("data/processed/elements.csv")
         target_elements = str(local_elements_path) if local_elements_path.exists() else "https://raw.githubusercontent.com/NoorBayan/ASL/main/data/processed/elements.csv"
         df_elements = self._read_table_robust(target_elements)
@@ -60,7 +80,7 @@ class Stage2AtomizationPipeline:
         df_elements.columns = [c.strip() for c in df_elements.columns]
 
         df_elements["element_id"] = pd.to_numeric(df_elements["element_id"], errors="coerce").fillna(0).astype(int)
-        df_elements["topic_id"] = pd.to_numeric(df_elements["topic_id"], errors="coerce").fillna(1).astype(int)
+        df_elements["topic_id"] = pd.to_numeric(df_elements["topic_id"], errors="coerce").fillna(fallback_topic_id).astype(int)
         df_elements["parent_element_id"] = pd.to_numeric(
             df_elements.get("parent_element_id", pd.Series([None] * len(df_elements))).astype(str).str.replace("NULL", "", case=False).str.strip(),
             errors="coerce"
@@ -75,7 +95,9 @@ class Stage2AtomizationPipeline:
         current_cursor = 0
         for _, row in df_elements.iterrows():
             eid = int(row["element_id"])
-            tid = int(row["topic_id"])
+            raw_tid = int(row["topic_id"])
+            tid = raw_tid if raw_tid in valid_topic_ids else fallback_topic_id
+
             role_en = str(row.get("element_type_en", "ruling")).strip().lower()
             role_ar = str(row.get("element_type_ar", "حكم"))
             text_val = str(row.get("element_text", "")).strip()
@@ -89,7 +111,6 @@ class Stage2AtomizationPipeline:
             current_cursor = end_char + 1
             
             page_num = page_map.get(eid, 1)
-
             parent_val = int(row["parent_element_id"]) if pd.notna(row["parent_element_id"]) else None
 
             atom_dict = {
