@@ -7,8 +7,8 @@ from src.schemas.query import StructuredQueryModel, LatencyMetricRow
 from src.query.router import QueryRouter
 
 class LatencyBenchmarkSuite:
-    def __init__(self, conn: Connection, graph: nx.MultiDiGraph):
-        self.router = QueryRouter(conn, graph)
+    def __init__(self, conn_or_manager: Any, graph: nx.MultiDiGraph):
+        self.router = QueryRouter(conn_or_manager, graph)
         self.topics = [int(n.split(":")[1]) for n in graph.nodes if n.startswith("topic:")]
         self.atoms = [int(n.split(":")[1]) for n in graph.nodes if n.startswith("atom:")]
 
