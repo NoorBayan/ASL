@@ -98,3 +98,57 @@ class TopicRepository:
         cursor = self.conn.cursor()
         cursor.execute(sql, params)
         return [dict(row) for row in cursor.fetchall()]
+
+
+class AtomRepository:
+    def __init__(self, conn: Connection):
+        self.conn = conn
+
+    def insert_atoms(self, atoms: List[Dict[str, Any]]) -> None:
+        sql = """
+        INSERT OR REPLACE INTO knowledge_atoms (
+            atom_id, topic_id, parent_element_id, element_type_en,
+            element_type_ar, macro_category, element_title, element_text,
+            element_order, depth_level, source_type, confidence_level,
+            start_char, end_char, page_number
+        ) VALUES (
+            :atom_id, :topic_id, :parent_element_id, :element_type_en,
+            :element_type_ar, :macro_category, :element_title, :element_text,
+            :element_order, :depth_level, :source_type, :confidence_level,
+            :start_char, :end_char, :page_number
+        );
+        """
+        cursor = self.conn.cursor()
+        cursor.executemany(sql, atoms)
+
+    def insert_provenance_records(self, records: List[Dict[str, Any]]) -> None:
+        sql = """
+        INSERT OR REPLACE INTO atom_provenance (
+            atom_id, document_id, source_start_char, source_end_char, is_verified
+        ) VALUES (
+            :atom_id, :document_id, :source_start_char, :source_end_char, :is_verified
+        );
+        """
+        cursor = self.conn.cursor()
+        cursor.executemany(sql, records)
+
+    def get_all_atoms(self) -> List[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM knowledge_atoms ORDER BY atom_id ASC;")
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_atoms_by_topic(self, topic_id: int) -> List[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM knowledge_atoms WHERE topic_id = ? ORDER BY element_order ASC;", (topic_id,))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_atoms_by_macro_category(self, macro_category: str) -> List[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM knowledge_atoms WHERE macro_category = ? ORDER BY atom_id ASC;", (macro_category,))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_atom_by_id(self, atom_id: int) -> Optional[Dict[str, Any]]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM knowledge_atoms WHERE atom_id = ?;", (atom_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
