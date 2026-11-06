@@ -1,9 +1,9 @@
-# ASL: A Scalable Knowledge Engineering Infrastructure for Islamic Jurisprudence
+# ASL: Computational Knowledge Base & Graph Infrastructure for Islamic Jurisprudence
 
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Storage](https://img.shields.io/badge/Storage-SQLite_%7C_NetworkX-green.svg)](https://networkx.org/)
+[![Storage Engine](https://img.shields.io/badge/Storage-SQLite_%7C_NetworkX-green.svg)](https://networkx.org/)
 [![Domain](https://img.shields.io/badge/Domain-Islamic_Jurisprudence_%26_Law-darkblue.svg)]()
-[![Dataset Status](https://img.shields.io/badge/Corpus_Scope-Kitab_Al--Waqf-purple.svg)]()
+[![Corpus Scope](https://img.shields.io/badge/Corpus_Scope-Kitab_Al--Waqf-purple.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)](https://github.com/NoorBayan/ASL/blob/main/LICENSE)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1LA56J0Cqc9jPDg-YLO9IEZuwUGFruUeD?usp=drive_link)
 
@@ -13,78 +13,67 @@
 
 ## Overview
 
-The corpus of traditional Islamic Jurisprudence (*Fiqh*) represents one of the world's most intricate and systematically reasoned legal systems. However, its foundational knowledge—comprising legal rulings (*Ahkam*), evidentiary grounds (*Adillah*), operative conditions (*Shurut*), and exceptions (*Istithna'at*)—has historically remained embedded in layered, continuous classical Arabic prose (*Matn*, *Sharh*, and *Hashiyah*). 
+**ASL** is an open-source data infrastructure and software pipeline developed to convert complex classical Arabic legal texts into structured, machine-interpretable knowledge representations. 
 
-**ASL** is an open-source knowledge engineering infrastructure designed to bridge this historical corpus with modern legal informatics. Rather than treating texts as flat strings for simple keyword retrieval, ASL systematically decomposes dense legal discourse into discrete, propositional units (**Knowledge Atoms**) and reconstructs them into a **Hybrid Relational–Graph Architecture**. This enables verifiable provenance tracking, low-millisecond multi-hop logical traversal, and direct semantic alignment with contemporary statutory regulations.
-
----
-
-## Current Scope & Corpus Roadmap
-
-* **Current Release (Phase 1):** The current release focuses on the **Chapter of Endowment (*Kitab al-Waqf*)** from the authoritative Hanbali manual *Al-Rawd Al-Murbi'*, mapped and harmonized alongside modern Saudi statutory regulations issued by the General Authority for Awqaf. The evaluated dataset encapsulates:
-  * **115 Conceptual Topics** organized within a 5-tier Directed Acyclic Graph (DAG).
-  * **588 Atomic Propositions (Knowledge Atoms)** classified across 47 operational epistemic roles.
-  * **12,980 Typed Directed Dependencies** supporting structured legal reasoning.
-
-* **Ongoing & Future Work:** Our team is actively expanding the annotation pipeline to cover the remaining chapters of *Al-Rawd Al-Murbi'*. The broader research horizon includes integrating comparative cross-school (*Madhahib*) analyses and extending interoperability mappings to wider Arab and Islamic codified jurisdictions.
+Rather than relying on lexical search across unstructured documents, this repository models jurisprudential arguments through a dual relational-graph architecture. The system decomposes legal discourse into fine-grained propositional units, preserves character-level source provenance, indexes hierarchical topic structures via transitive closure tables, and captures explicit reasoning dependencies across classical rulings and contemporary statutory frameworks.
 
 ---
 
-## Interactive Verification & Reproducibility (Google Colab)
+## Dataset Scope & Content
 
-To support full scientific transparency and allow scholars to experiment with the infrastructure without configuring a local development environment, we provide a complete, interactive Google Colab notebook.
+* **Current Implementation:** This release provides the processed knowledge network for the **Chapter of Endowment (*Kitab al-Waqf*)** based on the classical Hanbali text *Al-Rawd Al-Murbi'*, mapped alongside modern statutory provisions from the Saudi General Authority for Awqaf.
+* **Ongoing Development:** Annotation and extraction are actively underway to extend coverage to subsequent legal chapters. The long-term goal is to incorporate multi-school comparative jurisprudence (*Madhahib*) and broader regulatory statutes.
 
-The notebook allows you to replicate all stages of the framework, inspect relational schemas, execute live query benchmarks, and render interactive visual analytics directly in your browser:
+---
 
-👉 **[Launch Interactive Google Colab Notebook](https://colab.research.google.com/drive/1LA56J0Cqc9jPDg-YLO9IEZuwUGFruUeD?usp=drive_link)**
+## Interactive Notebook (Google Colab)
 
-### Included Demonstrations:
-1. **Interactive Topic Taxonomy (Deliverable 1.1):** A navigable multi-level sunburst exploration of the 115 conceptual topics.
-2. **Poincaré Hyperbolic Embedding (Deliverable 1.2):** Geometric projection of concept abstraction inside the unit disk ($\mathbb{B}^2$).
-3. **Transitive Lineage Inspector (Deliverable 1.3):** Real-time SQL inspection of parent-child ancestry chains powered by Closure Tables.
-4. **Semantic Passage Highlighter (Deliverable 2.1):** Color-coded visual breakdown of continuous classical passages into typed functional atoms.
-5. **Bitwise Provenance Audit (Deliverable 2.3):** Zero-hallucination verification confirming exact character-level offsets against the source texts.
-6. **Micro-Legal Logic Network (Deliverable 3.1):** Focused graph rendering connecting legal rulings directly to their conditions and supporting evidence.
-7. **Statutory Alignment Card (Deliverable 3.2):** Visual comparative bridge linking classical jurisprudence with codified Saudi law.
-8. **In-Process Latency Benchmark (Deliverable 5.3):** Live replication of the 1,000-query benchmark suite measuring sub-10ms response times.
-9. **Concurrency Scalability Stress Test (Deliverable 5.4):** Real-time multi-threaded execution curve showing sublinear latency growth across expanding graph tiers.
+An interactive Google Colab notebook is provided to demonstrate the pipeline, execute structured queries, and inspect the underlying graphs without requiring local installation:
+
+👉 **[Open Interactive Demonstration in Google Colab](https://colab.research.google.com/drive/1LA56J0Cqc9jPDg-YLO9IEZuwUGFruUeD?usp=drive_link)**
+
+### Visualizations & Interactive Modules:
+* **Taxonomic Sunburst Explorer:** Interactive navigation across the 115 topic categories and their nested sub-branches.
+* **Poincaré Metric Projection:** Hyperbolic geometric mapping of concept abstractions within the unit disk.
+* **Closure Table Ancestry Inspector:** Live SQL lookups tracing complete ancestor and descendant lineages with zero recursive overhead.
+* **Semantic Span Highlighter:** Visual extraction highlighting operational roles (rulings, conditions, proofs, exceptions) in source passages.
+* **Bitwise Provenance Verification:** Interactive verification confirming exact string identity between extracted propositions and raw source coordinates.
+* **Micro-Legal Logic Network:** Directed graph rendering dependencies connecting legal rulings directly to their conditions and proofs.
+* **Statutory Alignment View:** Comparative side-by-side mapping between classical juristic rules and modern codified articles.
+* **Performance Benchmarks:** Execution scripts measuring query latencies and multi-threaded scaling behavior.
 
 ---
 
 ## Dataset Organization
 
-The curated datasets are available in the [`data/processed/`](data/processed/) directory as standards-compliant, tabular CSV files:
+The processed corpus is organized into **3,190 structural units**, consisting of **703 semantic graph nodes** (115 Topics + 588 Knowledge Atoms), **2,487 textual source segments** supporting full auditability, and **12,980 typed directed edges**.
 
-| File Name | Description | Key Fields |
-| :--- | :--- | :--- |
-| **`topics.csv`** | The 115 conceptual categories establishing the taxonomic DAG. | `topic_id`, `parent_id`, `title`, `topic_level`, `topic_path` |
-| **`elements.csv`** | The 588 atomized propositions and their fine-grained functional roles. | `element_id`, `topic_id`, `element_type_en`, `element_text`, `confidence_level` |
-| **`knowledge_graph.csv`** | The 12,980 typed dependencies connecting topics and atoms. | `relation_id`, `subject_id`, `predicate`, `object_id`, `weight`, `confidence` |
-| **`topic_source_contents.csv`** | Annotated source passages linked to topic entities with tag mappings. | `topic_id`, `text_annotated`, `annotation_map`, `reference_page` |
-| **`element_source_contents.csv`** | Granular textual evidence and page references for individual atoms. | `element_id`, `topic_id`, `text_annotated`, `reference_page` |
+The data files are located in the [`data/processed/`](data/processed/) directory in standard CSV format:
+
+| File Name | Primary Representation | Record Count | Core Attributes |
+| :--- | :--- | :--- | :--- |
+| **`topics.csv`** | Conceptual Topic Hierarchy | **115 Nodes** | `topic_id`, `parent_id`, `title`, `topic_level`, `topic_path`, `category` |
+| **`elements.csv`** | Knowledge Element Atoms | **588 Nodes** | `element_id`, `topic_id`, `element_type_en`, `element_text`, `confidence_level` |
+| **`knowledge_graph.csv`** | Typed Relational Edges | **12,980 Edges** | `relation_id`, `subject_id`, `predicate`, `object_id`, `weight`, `confidence` |
+| **`topic_source_contents.csv`** | Annotated Source Texts | **2,487 Segments**<br>*(Cumulative across corpus)* | `topic_id`, `text_annotated`, `annotation_map`, `reference_page` |
+| **`element_source_contents.csv`** | Propositional Text Evidence | *(Referenced in cumulative segments)* | `element_id`, `topic_id`, `text_annotated`, `reference_page` |
 
 ---
 
-## An Open Invitation for Scholarly Collaboration
+## Scholarly Collaboration & Community
 
-Building a comprehensive, machine-interpretable knowledge infrastructure for Islamic jurisprudence is fundamentally an interdisciplinary undertaking. It cannot be achieved by computer scientists in isolation, nor can it scale without the direct involvement of domain specialists.
+Structuring historical legal discourse into verifiable computational models requires close interdisciplinary collaboration between legal specialists, linguists, and computer scientists. 
 
-We warmly invite colleagues from diverse disciplines to join, collaborate, and partner with us in expanding this initiative:
+We welcome interest and collaboration from researchers across these areas:
+* **Islamic Jurisprudence & Legal Theory:** Contributing to domain verification, juristic reasoning chains, and expanding annotations to additional chapters or legal schools.
+* **Modern Law & Comparative Informatics:** Exploring alignment between traditional jurisprudence and contemporary codified statutory systems.
+* **Computational Linguistics & Arabic NLP:** Developing specialized methods for Classical Arabic discourse segmentation, rhetorical semantics, and coreference resolution.
+* **Knowledge Graphs & AI Systems:** Integrating structured legal layers into neuro-symbolic reasoning, Graph-RAG, and retrieval architectures.
 
-* **Scholars of Islamic Jurisprudence & Usul al-Fiqh:** We welcome collaboration on annotating subsequent chapters, validating complex reasoning chains, resolving juristic ambiguities, and formalizing exception hierarchies across different schools of thought (*Madhahib*).
-* **Legal Scholars & Regulatory Analysts:** We seek partnerships with researchers interested in statutory codification, modern commercial law (*Mu'amalat*), and comparative legal harmonization.
-* **Computational Linguists & NLP Researchers:** There are rich opportunities for joint work on Classical Arabic boundary detection, rhetorical semantic extraction, coreference resolution in elliptical prose, and domain-adapted language modeling.
-* **Data Engineers & Graph AI Researchers:** We invite contributions toward federated Virtual Knowledge Graphs (VKGs), Graph-RAG architectures, and neuro-symbolic reasoning frameworks.
-
-Whether your interest lies in formal co-authorship on expanded chapters, dataset curation, peer review, or exploring joint research proposals, please feel free to reach out. We are eager to accommodate whatever collaborative structure best aligns with your academic interests.
-
-* **Contact & Inquiries:** You are welcome to open a discussion via [GitHub Issues](../../issues) or contact the corresponding author as listed in our published research.
+Researchers interested in joint work, shared datasets, or feedback are encouraged to reach out or participate via [GitHub Issues](../../issues).
 
 ---
 
 ## License
 
-This project, its dataset, and source code are openly licensed under the **[MIT License](https://github.com/NoorBayan/ASL/blob/main/LICENSE)**. You are free to use, adapt, and distribute this work with appropriate academic attribution.
-
----
-
+The code and datasets in this repository are released under the **[MIT License](https://github.com/NoorBayan/ASL/blob/main/LICENSE)**.
