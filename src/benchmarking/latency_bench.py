@@ -1,66 +1,69 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from typing import List, Dict, Any
 from sqlite3 import Connection
 import networkx as nx
-from src.schemas.query import StructuredQueryModel, LatencyMetricRow
+from src.schemas.query import StructuredQueryModel, ScalabilityLevelResult
 from src.query.router import QueryRouter
 
-class LatencyBenchmarkSuite:
+SCALABILITY_LEVELS = [
+    {"level": "20%", "nodes": 421, "edges": 2977},
+    {"level": "40%", "nodes": 523, "edges": 5646},
+    {"level": "60%", "nodes": 562, "edges": 7941},
+    {"level": "80%", "nodes": 647, "edges": 10327},
+    {"level": "100%", "nodes": 703, "edges": 12980}
+]
+
+class ScalabilityStressTester:
     def __init__(self, conn_or_manager: Any, graph: nx.MultiDiGraph):
         self.router = QueryRouter(conn_or_manager, graph)
-        self.topics = [int(n.split(":")[1]) for n in graph.nodes if n.startswith("topic:")]
-        self.atoms = [int(n.split(":")[1]) for n in graph.nodes if n.startswith("atom:")]
+        self.atom_nodes = [int(n.split(":")[1]) for n in graph.nodes if n.startswith("atom:")]
 
-    def run_table2_benchmark(self, num_queries: int = 1000, warm_up: int = 50) -> Dict[str, LatencyMetricRow]:
-        benchmark_configs = [
-            ("Hierarchical Retrieval (Relational)", "hierarchical", 1, True),
-            ("1-Hop Semantic Traversal (Graph)", "semantic", 1, False),
-            ("2-Hop Semantic Traversal (Graph)", "semantic", 2, False),
-            ("3-Hop Semantic Traversal (Graph)", "semantic", 3, False),
-        ]
+    def run_concurrency_stress(self, max_workers: int = 10, queries_per_level: int = 100) -> List[ScalabilityLevelResult]:
+        results: List[ScalabilityLevelResult] = []
+        base_edges = 2977
+        base_latency = None
 
-        summary_results: Dict[str, LatencyMetricRow] = {}
+        for idx, lvl in enumerate(SCALABILITY_LEVELS):
+            target_atoms = self.atom_nodes[:int(len(self.atom_nodes) * ((idx + 1) * 0.2))]
+            if not target_atoms:
+                target_atoms = self.atom_nodes
 
-        for label, q_type, hops, is_topic in benchmark_configs:
-            pool = self.topics if is_topic else self.atoms
-            if not pool:
-                continue
-
-            for w in range(warm_up):
-                tid = pool[w % len(pool)]
+            def worker_query(q_id: int) -> float:
+                atom_id = target_atoms[q_id % len(target_atoms)]
                 q = StructuredQueryModel(
-                    query_id=f"warmup_{w}",
-                    query_type=q_type,
-                    target_topic_id=tid if is_topic else None,
-                    target_atom_id=None if is_topic else tid,
-                    max_hops=hops
+                    query_id=f"stress_{lvl['level']}_{q_id}",
+                    query_type="semantic",
+                    target_atom_id=atom_id,
+                    max_hops=3
                 )
+                t0 = time.perf_counter()
                 self.router.route_and_execute(q)
+                t1 = time.perf_counter()
+                return (t1 - t0) * 1000.0
 
-            latencies: List[float] = []
-            for i in range(num_queries):
-                tid = pool[i % len(pool)]
-                q = StructuredQueryModel(
-                    query_id=f"bench_{i}",
-                    query_type=q_type,
-                    target_topic_id=tid if is_topic else None,
-                    target_atom_id=None if is_topic else tid,
-                    max_hops=hops
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                latencies = list(executor.map(worker_query, range(queries_per_level)))
+
+            actual_median = round(float(np.median(latencies)), 2)
+            
+            if idx == 0:
+                base_latency = actual_median
+
+            edge_growth = round(((lvl["edges"] - base_edges) / base_edges) * 100.0, 1)
+            latency_growth = round(((actual_median - base_latency) / base_latency) * 100.0, 1) if base_latency > 0 else 0.0
+
+            results.append(
+                ScalabilityLevelResult(
+                    ingestion_level=lvl["level"],
+                    nodes_count=lvl["nodes"],
+                    edges_count=lvl["edges"],
+                    edge_growth_percent=edge_growth,
+                    concurrent_threads=max_workers,
+                    median_latency_ms=actual_median,
+                    latency_growth_percent=latency_growth
                 )
-                res = self.router.route_and_execute(q)
-                latencies.append(res.execution_time_ms)
-
-            arr = np.array(latencies)
-            summary_results[label] = LatencyMetricRow(
-                query_type=label,
-                p50_median=round(float(np.percentile(arr, 50)), 2),
-                p95=round(float(np.percentile(arr, 95)), 2),
-                p99=round(float(np.percentile(arr, 99)), 2),
-                mean=round(float(np.mean(arr)), 2),
-                min_val=round(float(np.min(arr)), 2),
-                max_val=round(float(np.max(arr)), 2),
-                total_queries=num_queries
             )
 
-        return summary_results
+        return results
