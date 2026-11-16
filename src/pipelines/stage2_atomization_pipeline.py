@@ -135,18 +135,25 @@ class Stage2AtomizationPipeline:
                 end_char=len(src_context) if eid not in source_offset_map else end_char,
                 expected_text=text_val
             )
-            if is_valid_bound or len(text_val) > 0:
+            if is_valid_bound:
                 verified_provenance_count += 1
 
             page_num = page_map.get(eid, 1)
             parent_val = int(row["parent_element_id"]) if pd.notna(row["parent_element_id"]) else None
+
+            raw_conf_input = row.get("confidence_score", row.get("confidence_level", 1.0))
+            if isinstance(raw_conf_input, (int, float)) and not pd.isna(raw_conf_input):
+                span_score = float(raw_conf_input)
+            else:
+                conf_str = str(raw_conf_input).strip().lower()
+                span_score = 0.95 if conf_str == "high" else (0.80 if conf_str == "medium" else 0.65)
 
             from src.schemas.atom import DisambiguationSpan
             raw_spans.append(DisambiguationSpan(
                 span_id=f"span_{eid}",
                 start_char=start_char,
                 end_char=end_char,
-                score=1.0 if str(row.get("confidence_level", "high")).lower() == "high" else 0.8,
+                score=span_score,
                 atom_id=eid
             ))
 
