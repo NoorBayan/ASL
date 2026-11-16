@@ -72,12 +72,16 @@ class SemanticQueryEngine:
             edges = self.graph.out_edges(curr_node, data=True)
             for _, target, data in edges:
                 if target not in visited:
-                    visited.add(target)
+                    edge_conf = float(data.get("confidence", 1.0))
+                    if query.approved_only and edge_conf < 0.85:
+                        continue
+
                     pred = data.get("predicate", "related_to")
                     if query.relation_types and pred not in query.relation_types:
                         continue
 
-                    node_data = self.graph.nodes.get(target, {})
+                    visited.add(target)
+                    node_data = self.graph.nodes.get(target, {})            
                     entity_type = node_data.get("node_type", "unknown")
                     raw_id = node_data.get("raw_id", target)
                     title = node_data.get("title", target)
