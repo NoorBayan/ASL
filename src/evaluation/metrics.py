@@ -45,6 +45,7 @@ class EvaluationRegistry(BaseModel):
     chunking_relaxed_f1: float = Field(default=0.0)
     chunking_strict_f1: float = Field(default=0.0)
     chunking_regex_baseline_f1: float = Field(default=0.0)
+    chunking_gpt4_baseline_f1: float = Field(default=0.0)
     relation_proposed_f1: float = Field(default=0.0)
     relation_regex_baseline_f1: float = Field(default=0.0)
     relation_gpt4_baseline_f1: float = Field(default=0.0)
@@ -63,14 +64,13 @@ class EvaluationRegistry(BaseModel):
             data = json.load(f)
             return cls(**data)
 
-
     def get_comparative_table(self) -> List[Dict[str, Any]]:
         return [
             {
                 "Task": "Semantic Knowledge Chunking (Atoms)",
                 "Proposed Model": self.chunking_relaxed_f1,
                 "Regex Baseline": self.chunking_regex_baseline_f1,
-                "LLM Baseline (GPT-4)": 0.68,
+                "LLM Baseline (GPT-4)": self.chunking_gpt4_baseline_f1,
                 "Metric": "F1-Score (IoU >= 0.5)"
             },
             {
