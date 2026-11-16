@@ -36,6 +36,7 @@ class KnowledgeRelationModel(BaseModel):
     relation_description: Optional[str] = None
     review_status: str = "approved"
 
+
 class RelationMetricsModel(BaseModel):
     total_relations: int
     unique_predicates: int
@@ -44,6 +45,6 @@ class RelationMetricsModel(BaseModel):
     flagged_for_review_count: int
     review_flag_ratio: float
     confidence_threshold: float
-    f1_proposed: float
-    f1_regex_baseline: float
-    f1_gpt4_baseline: float
+    f1_proposed: Optional[float] = None
+    f1_regex_baseline: Optional[float] = None
+    f1_gpt4_baseline: Optional[float] = None
