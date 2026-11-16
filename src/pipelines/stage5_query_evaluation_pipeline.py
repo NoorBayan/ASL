@@ -50,6 +50,11 @@ class Stage5QueryEvaluationPipeline:
         manifest_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = manifest_dir / "stage5_manifest.json"
 
+        try:
+            self.eval_registry = EvaluationRegistry.load_from_benchmark_run()
+        except FileNotFoundError:
+            pass
+
         manifest_data = {
             "table2_latency_benchmark": {k: v.model_dump() for k, v in table2_results.items()},
             "figure10_scalability_stress": [r.model_dump() for r in figure10_results],
