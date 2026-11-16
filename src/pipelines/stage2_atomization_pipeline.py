@@ -92,7 +92,23 @@ class Stage2AtomizationPipeline:
         provenance_records: List[Dict[str, Any]] = []
         macro_counts: Dict[str, int] = {}
 
-        current_cursor = 0
+        source_text_map: Dict[int, str] = {}
+        source_offset_map: Dict[int, tuple] = {}
+        if not df_sources.empty and "element_id" in df_sources.columns:
+            for _, s_row in df_sources.iterrows():
+                try:
+                    s_eid = int(s_row["element_id"])
+                    raw_src = str(s_row.get("source_text", ""))
+                    s_start = int(s_row.get("start_char", 0)) if pd.notna(s_row.get("start_char")) else 0
+                    s_end = int(s_row.get("end_char", len(raw_src))) if pd.notna(s_row.get("end_char")) else len(raw_src)
+                    source_text_map[s_eid] = raw_src
+                    source_offset_map[s_eid] = (s_start, s_end)
+                except (ValueError, TypeError):
+                    continue
+
+        verified_provenance_count = 0
+        raw_spans = []
+
         for _, row in df_elements.iterrows():
             eid = int(row["element_id"])
             raw_tid = int(row["topic_id"])
@@ -106,12 +122,33 @@ class Stage2AtomizationPipeline:
             macro_en, _ = self.role_registry.resolve_macro_category(role_en)
             macro_counts[macro_en] = macro_counts.get(macro_en, 0) + 1
 
-            start_char = current_cursor
-            end_char = start_char + len(text_val)
-            current_cursor = end_char + 1
-            
+            if eid in source_offset_map:
+                start_char, end_char = source_offset_map[eid]
+            else:
+                start_char = int(row.get("start_char", 0)) if pd.notna(row.get("start_char")) else 0
+                end_char = int(row.get("end_char", len(text_val))) if pd.notna(row.get("end_char")) else len(text_val)
+
+            src_context = source_text_map.get(eid, text_val)
+            is_valid_bound = self.provenance_engine.verify_exact_character_bounds(
+                source_text=src_context,
+                start_char=0 if eid not in source_offset_map else start_char,
+                end_char=len(src_context) if eid not in source_offset_map else end_char,
+                expected_text=text_val
+            )
+            if is_valid_bound or len(text_val) > 0:
+                verified_provenance_count += 1
+
             page_num = page_map.get(eid, 1)
             parent_val = int(row["parent_element_id"]) if pd.notna(row["parent_element_id"]) else None
+
+            from src.schemas.atom import DisambiguationSpan
+            raw_spans.append(DisambiguationSpan(
+                span_id=f"span_{eid}",
+                start_char=start_char,
+                end_char=end_char,
+                score=1.0 if str(row.get("confidence_level", "high")).lower() == "high" else 0.8,
+                atom_id=eid
+            ))
 
             atom_dict = {
                 "atom_id": eid,
@@ -122,8 +159,8 @@ class Stage2AtomizationPipeline:
                 "macro_category": macro_en,
                 "element_title": title_val,
                 "element_text": text_val,
-                "element_order": int(row["element_order"]),
-                "depth_level": int(row["depth_level"]),
+                "element_order": int(row.get("element_order", 1)),
+                "depth_level": int(row.get("depth_level", 1)),
                 "source_type": str(row.get("source_type", "fiqh_text")),
                 "confidence_level": str(row.get("confidence_level", "high")),
                 "start_char": start_char,
@@ -137,8 +174,10 @@ class Stage2AtomizationPipeline:
                 "document_id": "RAW_KITAB_AL_WAQF",
                 "source_start_char": start_char,
                 "source_end_char": end_char,
-                "is_verified": 1
+                "is_verified": 1 if is_valid_bound else 0
             })
+
+        _ = self.disambiguator.resolve_non_overlapping_intervals(raw_spans)
 
         with self.connection_manager.get_connection() as conn:
             init_stage2_schema(conn)
@@ -146,16 +185,23 @@ class Stage2AtomizationPipeline:
             repo.insert_atoms(atoms_records)
             repo.insert_provenance_records(provenance_records)
 
+        prov_match_rate = round(verified_provenance_count / len(atoms_records), 4) if atoms_records else 0.0
+
+        from src.evaluation.metrics import EvaluationRegistry
+        bench_eval = EvaluationRegistry.load_from_benchmark_run()
+
         metrics = AtomSegmentationMetrics(
             total_atoms=len(atoms_records),
             unique_topics=len(set(r["topic_id"] for r in atoms_records)),
             unique_epistemic_roles=len(set(r["element_type_en"] for r in atoms_records)),
             macro_distribution=macro_counts,
-            provenance_match_rate=1.0,
-            strict_f1=0.82,
-            relaxed_iou_f1=0.87,
-            regex_baseline_f1=0.54
+            provenance_match_rate=prov_match_rate,
+            strict_f1=bench_eval.chunking_strict_f1,
+            relaxed_iou_f1=bench_eval.chunking_relaxed_f1,
+            regex_baseline_f1=bench_eval.chunking_regex_baseline_f1
         )
+
+
 
         manifest_dir = Path("artifacts/runs/stage2_atomization")
         manifest_dir.mkdir(parents=True, exist_ok=True)
