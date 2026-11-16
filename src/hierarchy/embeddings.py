@@ -1,5 +1,5 @@
 import math
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 from src.schemas.hierarchy import PoincareCoordinate
 
 class PoincareProjectionCalculator:
