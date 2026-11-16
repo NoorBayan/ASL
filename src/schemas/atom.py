@@ -51,6 +51,7 @@ class AtomSegmentationMetrics(BaseModel):
     unique_epistemic_roles: int
     macro_distribution: Dict[str, int]
     provenance_match_rate: float
-    strict_f1: float
-    relaxed_iou_f1: float
-    regex_baseline_f1: float
+    strict_f1: Optional[float] = None
+    relaxed_iou_f1: Optional[float] = None
+    regex_baseline_f1: Optional[float] = None
+    
