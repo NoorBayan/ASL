@@ -188,7 +188,11 @@ class Stage2AtomizationPipeline:
         prov_match_rate = round(verified_provenance_count / len(atoms_records), 4) if atoms_records else 0.0
 
         from src.evaluation.metrics import EvaluationRegistry
-        bench_eval = EvaluationRegistry.load_from_benchmark_run()
+        try:
+            bench_eval = EvaluationRegistry.load_from_benchmark_run()
+            s_f1, r_f1, reg_f1 = bench_eval.chunking_strict_f1, bench_eval.chunking_relaxed_f1, bench_eval.chunking_regex_baseline_f1
+        except FileNotFoundError:
+            s_f1, r_f1, reg_f1 = None, None, None
 
         metrics = AtomSegmentationMetrics(
             total_atoms=len(atoms_records),
@@ -196,9 +200,9 @@ class Stage2AtomizationPipeline:
             unique_epistemic_roles=len(set(r["element_type_en"] for r in atoms_records)),
             macro_distribution=macro_counts,
             provenance_match_rate=prov_match_rate,
-            strict_f1=bench_eval.chunking_strict_f1,
-            relaxed_iou_f1=bench_eval.chunking_relaxed_f1,
-            regex_baseline_f1=bench_eval.chunking_regex_baseline_f1
+            strict_f1=s_f1,
+            relaxed_iou_f1=r_f1,
+            regex_baseline_f1=reg_f1
         )
 
 
