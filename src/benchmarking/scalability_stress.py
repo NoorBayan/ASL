@@ -67,19 +67,23 @@ class ScalabilityStressTester:
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 latencies = list(executor.map(worker_query_exec, range(queries_per_level)))
-
+            
             measured_median = round(float(np.median(latencies)), 2)
-            if idx == 0 or base_latency is None:
-                base_latency = measured_median
-
+            actual_nodes = subgraph.number_of_nodes()
             actual_edges = subgraph.number_of_edges()
-            edge_growth = round(((actual_edges - base_edges) / base_edges) * 100.0, 1) if base_edges > 0 else 0.0
-            latency_growth = round(((measured_median - base_latency) / base_latency) * 100.0, 1) if base_latency > 0 else 0.0
+
+            if idx == 0 or base_edges is None:
+                base_edges = actual_edges if actual_edges > 0 else 1
+            if idx == 0 or base_latency is None:
+                base_latency = measured_median if measured_median > 0 else 1.0
+
+            edge_growth = round(((actual_edges - base_edges) / base_edges) * 100.0, 1)
+            latency_growth = round(((measured_median - base_latency) / base_latency) * 100.0, 1)
 
             results.append(
                 ScalabilityLevelResult(
                     ingestion_level=lvl["level"],
-                    nodes_count=subgraph.number_of_nodes(),
+                    nodes_count=actual_nodes,
                     edges_count=actual_edges,
                     edge_growth_percent=edge_growth,
                     concurrent_threads=max_workers,
