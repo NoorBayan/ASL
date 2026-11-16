@@ -1,74 +1,82 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlite3 import Connection
 import networkx as nx
 from src.schemas.query import StructuredQueryModel, ScalabilityLevelResult
 from src.query.router import QueryRouter
 
-SCALABILITY_LEVELS = [
-    {"level": "20%", "nodes": 421, "edges": 2977},
-    {"level": "40%", "nodes": 523, "edges": 5646},
-    {"level": "60%", "nodes": 562, "edges": 7941},
-    {"level": "80%", "nodes": 647, "edges": 10327},
-    {"level": "100%", "nodes": 703, "edges": 12980}
+INGESTION_FRACTIONS = [
+    ("20%", 0.20),
+    ("40%", 0.40),
+    ("60%", 0.60),
+    ("80%", 0.80),
+    ("100%", 1.00)
 ]
 
 class ScalabilityStressTester:
     def __init__(self, conn_or_manager: Any, graph: nx.MultiDiGraph):
-        self.router = QueryRouter(conn_or_manager, graph)
-        self.atom_nodes = [int(n.split(":")[1]) for n in graph.nodes if n.startswith("atom:")]
+        self.conn_or_manager = conn_or_manager
+        self.graph = graph
+        self.topic_nodes = sorted([n for n in graph.nodes if n.startswith("topic:")])
+        self.atom_nodes = sorted([n for n in graph.nodes if n.startswith("atom:")])
+
+    def _build_ingestion_subgraph(self, fraction: float) -> nx.MultiDiGraph:
+        if fraction >= 1.0:
+            return self.graph
+
+        topic_slice_count = max(1, int(len(self.topic_nodes) * fraction))
+        selected_topics = set(self.topic_nodes[:topic_slice_count])
+
+        selected_nodes = set(selected_topics)
+        for atom_node in self.atom_nodes:
+            atom_data = self.graph.nodes.get(atom_node, {})
+            parent_topic_id = atom_data.get("topic_id")
+            if parent_topic_id is not None and f"topic:{parent_topic_id}" in selected_topics:
+                selected_nodes.add(atom_node)
+
+        if len(selected_nodes) < 2:
+            atom_slice_count = max(1, int(len(self.atom_nodes) * fraction))
+            selected_nodes.update(self.atom_nodes[:atom_slice_count])
+
+        return self.graph.subgraph(selected_nodes).copy()
 
     def run_concurrency_stress(self, max_workers: int = 10, queries_per_level: int = 100) -> List[ScalabilityLevelResult]:
         results: List[ScalabilityLevelResult] = []
-        base_edges = 2977
-        base_latency = 40.00
+        base_edges: Optional[int] = None
+        base_latency: Optional[float] = None
 
-        for idx, lvl in enumerate(SCALABILITY_LEVELS):
-            target_atoms = self.atom_nodes[:int(len(self.atom_nodes) * ((idx + 1) * 0.2))]
-            if not target_atoms:
-                target_atoms = self.atom_nodes
-
-            def worker_query(q_id: int) -> float:
-                atom_id = target_atoms[q_id % len(target_atoms)]
-                q = StructuredQueryModel(
-                    query_id=f"stress_{lvl['level']}_{q_id}",
-                    query_type="semantic",
-                    target_atom_id=atom_id,
-                    max_hops=3
-                )
-                t0 = time.perf_counter()
-                self.router.route_and_execute(q)
-                t1 = time.perf_counter()
-                return (t1 - t0) * 1000.0
-                
-            target_node_count = int(lvl["nodes"])
-            sub_nodes = list(self.graph.nodes)[:target_node_count]
-            subgraph = self.graph.subgraph(sub_nodes).copy()
+        for idx, (label, fraction) in enumerate(INGESTION_FRACTIONS):
+            subgraph = self._build_ingestion_subgraph(fraction)
             level_router = QueryRouter(self.conn_or_manager, subgraph)
 
-            level_atoms = [int(n.split(":")[1]) for n in subgraph.nodes if n.startswith("atom:")]
-            if not level_atoms:
-                level_atoms = self.atom_nodes[:target_node_count]
+            current_atoms = [
+                int(n.split(":")[1]) for n in subgraph.nodes if n.startswith("atom:") and n.split(":")[1].isdigit()
+            ]
+            if not current_atoms:
+                current_atoms = [
+                    int(n.split(":")[1]) for n in self.atom_nodes if n.split(":")[1].isdigit()
+                ]
 
-            def worker_query_exec(q_id: int) -> float:
-                atom_id = level_atoms[q_id % len(level_atoms)]
+            def execute_worker(query_index: int) -> float:
+                target_atom = current_atoms[query_index % len(current_atoms)]
                 q = StructuredQueryModel(
-                    query_id=f"stress_{lvl['level']}_{q_id}",
+                    query_id=f"stress_{label}_{query_index}",
                     query_type="semantic",
-                    target_atom_id=atom_id,
-                    max_hops=3
+                    target_atom_id=target_atom,
+                    max_hops=3,
+                    approved_only=True
                 )
-                t0 = time.perf_counter()
+                t_start = time.perf_counter()
                 level_router.route_and_execute(q)
-                t1 = time.perf_counter()
-                return (t1 - t0) * 1000.0
+                t_end = time.perf_counter()
+                return (t_end - t_start) * 1000.0
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                latencies = list(executor.map(worker_query_exec, range(queries_per_level)))
-            
-            measured_median = round(float(np.median(latencies)), 2)
+                measured_latencies = list(executor.map(execute_worker, range(queries_per_level)))
+
+            measured_median = round(float(np.median(measured_latencies)), 2)
             actual_nodes = subgraph.number_of_nodes()
             actual_edges = subgraph.number_of_edges()
 
@@ -82,7 +90,7 @@ class ScalabilityStressTester:
 
             results.append(
                 ScalabilityLevelResult(
-                    ingestion_level=lvl["level"],
+                    ingestion_level=label,
                     nodes_count=actual_nodes,
                     edges_count=actual_edges,
                     edge_growth_percent=edge_growth,
