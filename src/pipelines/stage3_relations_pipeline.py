@@ -114,7 +114,11 @@ class Stage3RelationsPipeline:
         cross_alignments = sum(1 for r in relations_records if r["predicate"] == "aligned_with")
 
         from src.evaluation.metrics import EvaluationRegistry
-        bench_eval = EvaluationRegistry.load_from_benchmark_run()
+        try:
+            bench_eval = EvaluationRegistry.load_from_benchmark_run()
+            f1_p, f1_r, f1_g = bench_eval.relation_proposed_f1, bench_eval.relation_regex_baseline_f1, bench_eval.relation_gpt4_baseline_f1
+        except FileNotFoundError:
+            f1_p, f1_r, f1_g = None, None, None
 
         metrics = RelationMetricsModel(
             total_relations=len(relations_records),
@@ -124,9 +128,9 @@ class Stage3RelationsPipeline:
             flagged_for_review_count=flagged_count,
             review_flag_ratio=round((flagged_count / len(relations_records)) * 100.0, 2) if relations_records else 0.0,
             confidence_threshold=self.classifier.confidence_threshold,
-            f1_proposed=bench_eval.relation_proposed_f1,
-            f1_regex_baseline=bench_eval.relation_regex_baseline_f1,
-            f1_gpt4_baseline=bench_eval.relation_gpt4_baseline_f1
+            f1_proposed=f1_p,
+            f1_regex_baseline=f1_r,
+            f1_gpt4_baseline=f1_g
         )
 
         manifest_dir = Path("artifacts/runs/stage3_relations")
