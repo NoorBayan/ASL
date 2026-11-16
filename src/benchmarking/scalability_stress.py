@@ -42,22 +42,48 @@ class ScalabilityStressTester:
                 self.router.route_and_execute(q)
                 t1 = time.perf_counter()
                 return (t1 - t0) * 1000.0
+                
+            target_node_count = int(lvl["nodes"])
+            sub_nodes = list(self.graph.nodes)[:target_node_count]
+            subgraph = self.graph.subgraph(sub_nodes).copy()
+            level_router = QueryRouter(self.conn_or_manager, subgraph)
+
+            level_atoms = [int(n.split(":")[1]) for n in subgraph.nodes if n.startswith("atom:")]
+            if not level_atoms:
+                level_atoms = self.atom_nodes[:target_node_count]
+
+            def worker_query_exec(q_id: int) -> float:
+                atom_id = level_atoms[q_id % len(level_atoms)]
+                q = StructuredQueryModel(
+                    query_id=f"stress_{lvl['level']}_{q_id}",
+                    query_type="semantic",
+                    target_atom_id=atom_id,
+                    max_hops=3
+                )
+                t0 = time.perf_counter()
+                level_router.route_and_execute(q)
+                t1 = time.perf_counter()
+                return (t1 - t0) * 1000.0
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                latencies = list(executor.map(worker_query, range(queries_per_level)))
+                latencies = list(executor.map(worker_query_exec, range(queries_per_level)))
 
-            simulated_latency = round(40.00 + (idx * 1.28), 2)
-            edge_growth = round(((lvl["edges"] - base_edges) / base_edges) * 100.0, 1)
-            latency_growth = round(((simulated_latency - base_latency) / base_latency) * 100.0, 1)
+            measured_median = round(float(np.median(latencies)), 2)
+            if idx == 0 or base_latency is None:
+                base_latency = measured_median
+
+            actual_edges = subgraph.number_of_edges()
+            edge_growth = round(((actual_edges - base_edges) / base_edges) * 100.0, 1) if base_edges > 0 else 0.0
+            latency_growth = round(((measured_median - base_latency) / base_latency) * 100.0, 1) if base_latency > 0 else 0.0
 
             results.append(
                 ScalabilityLevelResult(
                     ingestion_level=lvl["level"],
-                    nodes_count=lvl["nodes"],
-                    edges_count=lvl["edges"],
+                    nodes_count=subgraph.number_of_nodes(),
+                    edges_count=actual_edges,
                     edge_growth_percent=edge_growth,
                     concurrent_threads=max_workers,
-                    median_latency_ms=simulated_latency,
+                    median_latency_ms=measured_median,
                     latency_growth_percent=latency_growth
                 )
             )
