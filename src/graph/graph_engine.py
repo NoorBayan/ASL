@@ -39,20 +39,6 @@ class KnowledgeGraphEngine:
                 topic_id=int(a["topic_id"])
             )
 
-        topic_edges = topic_repo.get_all_edges()
-        for e in topic_edges:
-            src = f"topic:{e['parent_id']}"
-            dst = f"topic:{e['child_id']}"
-            if self.graph.has_node(src) and self.graph.has_node(dst):
-                self.graph.add_edge(
-                    src,
-                    dst,
-                    key=f"edge:{e['parent_id']}:{e['child_id']}:subsumes",
-                    predicate="subsumes",
-                    weight=1.0,
-                    category="taxonomic"
-                )
-
         relations = rel_repo.get_all_relations()
         for r in relations:
             src_type = str(r["source_type"]).strip().lower()
